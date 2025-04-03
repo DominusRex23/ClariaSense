@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link'; // Import Next.js Link
 
-export default function Home() {
+export default function Logs() {
     const [menuOpen, setMenuOpen] = useState(false);
 
     const toggleMenu = () => {
@@ -30,7 +30,6 @@ export default function Home() {
                         height={67}
                         alt="Logo"
                       >
-                        
                       </Image>
                     </div>
 
