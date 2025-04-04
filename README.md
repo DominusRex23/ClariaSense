@@ -6,7 +6,7 @@ An IoT-powered aquarium monitoring and water replacement system using an ESP32 a
 
 ## 📦 Features
 
-- Monitors **pH**, **TDS (ppm)**, **Temperature (°C)**, **Turbidity (NTU)**, and **flow rates**
+- Monitors **pH**, **TDS (ppm)**, **Temperature (°C)**, and **flow rates**
 - Automatically switches between 4 modes:
   - 🔁 Continuous Mode (normal flow)
   - 💧 Drain Mode (partial water removal)
@@ -30,7 +30,6 @@ An IoT-powered aquarium monitoring and water replacement system using an ESP32 a
 - **pH Sensor** (pH-4502C)
 - **TDS Sensor**
 - **DS18B20 Temperature Sensor**
-- **Turbidity Sensor**
 - **3x Flow Meters (YF-S201 or similar)**
 - **4x Relays (Normally Closed)**
 - 12V or 5V power supply
@@ -49,17 +48,7 @@ An IoT-powered aquarium monitoring and water replacement system using an ESP32 a
 
 ---
 
-## 🧪 Test Commands (Serial)
 
-| Command                     | Description                            |
-|-----------------------------|----------------------------------------|
-| `test:7.2,350,25,85`        | Simulate high TDS (3 gal replacement)  |
-| `test:5.5,250,25,50`        | Simulate low pH (2 gal replacement)    |
-| `flowless`                  | Use timers instead of flow meters      |
-| `flowon`                    | Re-enable real flow logic              |
-| `reset`                     | Return to live sensor mode             |
-
----
 
 ## 💻 Upload Instructions
 
