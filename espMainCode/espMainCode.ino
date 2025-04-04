@@ -1,320 +1,330 @@
-// === Analog Pins ===
-#define PH_PIN 33
-#define TDS_PIN 34
+#include <WiFi.h>
+#include <Firebase_ESP_Client.h>
+#include "addons/TokenHelper.h"
+#include "addons/RTDBHelper.h"
+#include "time.h"
+#include <ArduinoJson.h>
 
-// === Relay Pins (Normally Closed) ===
-#define RELAY1_PIN 21
-#define RELAY2_PIN 19
-#define RELAY3_PIN 18
-#define RELAY4_PIN 5
+#define WIFI_SSID "wifi"
+#define WIFI_PASSWORD "password"
+#define API_KEY "api-key"
+#define FIREBASE_PROJECT_ID "project-id"
+#define DATABASE_URL "databaseurl"
 
-// === Calibration ===
-const float V4 = 3.20, V7 = 2.38, V10 = 2.14;
-const float V_1000 = 1.53, V_1413 = 2.05, V_12880 = 2.28;
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
 
-// === Safe Ranges & Volumes ===
-const float PH_MIN = 6.0, PH_MAX = 8.5;
-const float TEMP_MIN = 20.0, TEMP_MAX = 32.0;
-const float TDS_TRIGGER = 300.0;
-const float NTU_MIN = 20.0, NTU_MAX = 80.0;
-const float THREE_GALLONS = 11.35;
-const float TWO_GALLONS = 7.57;
+// 🔹 NTP Configuration (Manila Time GMT+8)
+const char* ntpServer = "asia.pool.ntp.org";
+const long gmtOffset_sec = 8 * 3600; // GMT+8 Offset
+const int daylightOffset_sec = 0; // No daylight saving in Manila
 
-// === Sampling Settings ===
-const int NUM_MEDIAN_SAMPLES = 15;
-const int BUFFER_SIZE = 60;
-const float SMOOTHING_ALPHA = 0.2;
-const unsigned long SAMPLE_INTERVAL_MS = 1000;
-const unsigned long DUMP_DURATION_MS = 10000;
+int lastLoggedHour = -1; // 🔹 Stores the last logged hour to prevent duplicates
+bool signupOK = false;  // Declare globally
 
-// === Flowless Test Timers ===
-bool testUseTimers = false;
-unsigned long drainStartTime = 0;
+unsigned long sendDataPrevMillis = 0; // Declare to avoid scope issues
+
+#define RELAY_1 21
+#define RELAY_2 19
+#define RELAY_3 18
+#define RELAY_4 5
+
+float latestTemp = 0.0, latestTDS = 0.0, latestPH = 0.0;
+float latestL1 = 0.0, latestL2 = 0.0, latestL3 = 0.0;
+
+int mode = 1;
+float drainLiters = 0.0;
+float fillLiters = 0.0;
 unsigned long fillStartTime = 0;
-const unsigned long DRAIN_TEST_DURATION_MS = 8000;
-const unsigned long FILL_TEST_DURATION_MS  = 8000;
-
-// === Buffers ===
-float pH_voltageBuffer[BUFFER_SIZE];
-float tempBuffer[BUFFER_SIZE];
-float turbBuffer[BUFFER_SIZE];
-float tdsVoltageBuffer[BUFFER_SIZE];
-int bufferIndex = 0;
-unsigned long lastSampleTime = 0;
-float filteredTDSVoltage = 0;
-
-// === Mode Tracking ===
-enum SystemMode { CONTINUOUS, DRAIN, DUMP, FILL };
-SystemMode currentMode = CONTINUOUS;
-float slope1, slope2, avgSlope;
-float drainedLiters = 0.0, filledLiters = 0.0;
-float targetDrainLiters = 0.0, targetFillLiters = 0.0;
+unsigned long fillDuration = 0;
 unsigned long dumpStartTime = 0;
 
-// === Arduino Data ===
-String unoData = "";
-float latestL1 = 0.0, latestL3 = 0.0;
-float latestTemp = 0.0, latestTurbidity = 0.0;
+unsigned long lastLoggedTime = 0;  // Variable to track last log time for hourly logs
+unsigned long lastParamLogTime = 0;  // Variable to track last log time for parameter out-of-range logs
 
-// === Manual Test Mode ===
-bool manualTestMode = true;
-float testPH = 7.0, testTDS = 250.0, testTemp = 25.0, testNTU = 50.0;
-
-// === Relays ===
-void setModeContinuous() {
-  Serial.println("🔁 Continuous Mode");
-  digitalWrite(RELAY1_PIN, LOW);
-  digitalWrite(RELAY2_PIN, LOW);
-  digitalWrite(RELAY3_PIN, HIGH);
-  digitalWrite(RELAY4_PIN, HIGH);
+void stopAllRelays() {
+  digitalWrite(RELAY_1, HIGH);
+  digitalWrite(RELAY_2, HIGH);
+  digitalWrite(RELAY_3, HIGH);
+  digitalWrite(RELAY_4, HIGH);
 }
 
-void setModeDrain() {
-  Serial.println("💧 Drain Mode");
-  digitalWrite(RELAY1_PIN, LOW);
-  digitalWrite(RELAY2_PIN, HIGH);
-  digitalWrite(RELAY3_PIN, HIGH);
-  digitalWrite(RELAY4_PIN, HIGH);
-  drainStartTime = millis();
-}
+void checkMode() {
+  unsigned long now = millis();
 
-void setModeDump() {
-  Serial.println("🗑️ Dump Mode");
-  digitalWrite(RELAY1_PIN, HIGH);
-  digitalWrite(RELAY2_PIN, HIGH);
-  digitalWrite(RELAY3_PIN, LOW);
-  digitalWrite(RELAY4_PIN, HIGH);
-  dumpStartTime = millis();
-}
-
-void setModeFill() {
-  Serial.println("🚿 Fill Mode");
-  digitalWrite(RELAY1_PIN, HIGH);
-  digitalWrite(RELAY2_PIN, HIGH);
-  digitalWrite(RELAY3_PIN, HIGH);
-  digitalWrite(RELAY4_PIN, LOW);
-  fillStartTime = millis();
-}
-
-// === Helpers ===
-void sortArray(int arr[], int size) {
-  for (int i = 0; i < size - 1; i++)
-    for (int j = i + 1; j < size; j++)
-      if (arr[j] < arr[i]) {
-        int temp = arr[i]; arr[i] = arr[j]; arr[j] = temp;
+  switch (mode) {
+    case 1: { // Continuous Mode
+      if (latestTDS < 300 &&
+          latestPH < 8.9 &&
+          latestTemp < 33 /*&&
+          latestTurbidity < 80*/) {
+        digitalWrite(RELAY_1, LOW);
+        digitalWrite(RELAY_2, LOW);
+        Serial.println("✅ Mode 1: Continuous Mode ACTIVE (All parameters OK)");
+      } else {
+        stopAllRelays();
+        mode = 2; // Switch to Drain/Fill Mode
+        drainLiters = 0.0;
+        fillLiters = 0.0;
+        Serial.println("⚠️ Parameters out of range! Switching to Mode 2 (Drain/Fill Mode)");
       }
-}
+      break;
+    }
 
-float getFilteredPHVoltage() {
-  int samples[NUM_MEDIAN_SAMPLES];
-  for (int i = 0; i < NUM_MEDIAN_SAMPLES; i++) {
-    samples[i] = analogRead(PH_PIN);
-    delayMicroseconds(100);
+    case 2: { // Drain/Fill Mode
+      drainLiters += latestL1; // Drain amount (L)
+      fillLiters += latestL3;  // Fill amount (L)
+      digitalWrite(RELAY_1, LOW); // Activate drain relay
+      digitalWrite(RELAY_4, LOW); // Activate fill relay
+      
+      Serial.print("🚰 Mode 2: Draining/Filling... Drained: ");
+      Serial.print(drainLiters, 2);
+      Serial.print(" L | Filled: ");
+      Serial.print(fillLiters, 2);
+      Serial.println(" L");
+
+      // If drainage reaches 5L, switch to dump mode
+      if (drainLiters >= 5.0) {
+        stopAllRelays();
+        mode = 3; // Go to Dump Mode (was previously setting to mode 4)
+        dumpStartTime = millis(); // Start time for dump mode
+        Serial.println("✅ Drain complete. Switching to Mode 3 (Dump Mode)");
+      }
+      break;
+    }
+
+    case 3: { // Dump Mode (Continuous, 60 seconds only)
+      unsigned long dumpElapsed = (millis() - dumpStartTime) / 1000;
+      digitalWrite(RELAY_3, LOW); // Activate dump relay
+      
+      Serial.print("🗑️ Mode 3: Dumping... Time: ");
+      Serial.print(dumpElapsed);
+      Serial.println(" sec | Target: 60 sec");
+
+      // Dump for 60 seconds
+      if (dumpElapsed >= 60) {
+        stopAllRelays();
+        mode = 1; // Return to Continuous Mode
+        Serial.println("✅ Dump complete. Returning to Mode 1 (Continuous Mode)");
+      }
+      break;
+    }
   }
-  sortArray(samples, NUM_MEDIAN_SAMPLES);
-  return samples[NUM_MEDIAN_SAMPLES / 2] * (3.3 / 4095.0);
 }
 
-int readTDSRaw(int pin, int samples = 10) {
-  long total = 0;
-  for (int i = 0; i < samples; i++) {
-    total += analogRead(pin);
-    delay(10);
+// Function to log data once per hour (includes date)
+void logHourlyData(float latestTemp, float latestTDS, float latestPH) {
+    static String lastLoggedHour = "";
+    static float tempBuf[10], tdsBuf[10], phBuf[10];
+    static int sampleIndex = 0;
+    static bool dataLoggedThisHour = false;
+    struct tm timeinfo;
+    if (!getLocalTime(&timeinfo)) {
+        Serial.println("Failed to obtain time");
+        return;
+    }
+
+    char hourKey[20]; // e.g., 2025-04-04_13
+    strftime(hourKey, sizeof(hourKey), "%Y-%m-%d_%H", &timeinfo);
+    String currentHour = String(hourKey);
+    int secondNow = timeinfo.tm_sec;
+    // New hour, reset buffer & state
+    if (currentHour != lastLoggedHour) {
+        lastLoggedHour = currentHour;
+        sampleIndex = 0;
+        dataLoggedThisHour = false;
+    }
+    // Collect samples in first 10 seconds
+    if (!dataLoggedThisHour && secondNow < 10) {
+        if (sampleIndex < 10) {
+            tempBuf[sampleIndex] = latestTemp;
+            tdsBuf[sampleIndex] = latestTDS;
+            phBuf[sampleIndex] = latestPH;
+            sampleIndex++;
+        }
+        // Once 10 samples collected, log to Firestore
+        if (sampleIndex == 10) {
+            char timestamp[25];
+            strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H:00:00", &timeinfo);
+            String documentPath = "hourly_logs/" + String(timestamp);
+            FirebaseJson content;
+            
+            // Create proper Firestore array values for each sensor type
+            FirebaseJsonArray tempArray, tdsArray, phArray;
+            
+            // Add values to arrays with proper Firestore format
+            for (int i = 0; i < 10; i++) {
+                FirebaseJson tempValue, tdsValue, phValue;
+                
+                tempValue.set("doubleValue", tempBuf[i]);
+                tempArray.add(tempValue);
+                
+                tdsValue.set("doubleValue", tdsBuf[i]);
+                tdsArray.add(tdsValue);
+                
+                phValue.set("doubleValue", phBuf[i]);
+                phArray.add(phValue);
+                
+            }
+            
+            // Assign arrays to content
+            content.set("fields/temp/arrayValue/values", tempArray);
+            content.set("fields/tds/arrayValue/values", tdsArray);
+            content.set("fields/ph/arrayValue/values", phArray);
+            content.set("fields/timestamp/stringValue", String(timestamp));
+            
+            Serial.print("Logging 10-sample hourly data to Firestore... ");
+            if (Firebase.Firestore.createDocument(&fbdo, FIREBASE_PROJECT_ID, "", documentPath.c_str(), content.raw())) {
+                Serial.println("Success!");
+                dataLoggedThisHour = true;
+            } else {
+                Serial.println("Error: " + fbdo.errorReason());
+            }
+        }
+    }
+}
+
+
+void logParameterOutOfRange(float latestTemp, float latestTDS, float latestPH) {
+    // Check if any parameter is out of range
+    if ((latestTemp > 32) ||
+        (latestTDS > 299) ||
+        (latestPH > 8.9)) {
+        
+        String timestamp = getFormattedTime(); // Get Manila time
+        
+        // Create unique document ID that's Firestore-compatible
+        // Replace any characters that aren't allowed in Firestore document IDs
+        String docID = timestamp;
+        docID.replace(":", "-");
+        docID.replace(" ", "_");
+        docID.replace("/", "-");
+        
+        String documentPath = "error_logs/" + docID; // Store logs under "error_logs" collection
+
+        // Create FirebaseJson object for Firestore data
+        FirebaseJson content;
+        
+        // Set proper field values with correct types
+        content.set("fields/temp/doubleValue", latestTemp);
+        content.set("fields/tds/doubleValue", latestTDS);
+        content.set("fields/ph/doubleValue", latestPH);
+        content.set("fields/timestamp/stringValue", timestamp);
+        
+        // Also add which parameter(s) triggered the error
+        FirebaseJsonArray errorParamsArray;
+        
+        if (latestTemp > 32) {
+            FirebaseJson errorParam;
+            errorParam.set("stringValue", "temperature");
+            errorParamsArray.add(errorParam);
+        }
+        if (latestTDS > 299) {
+            FirebaseJson errorParam;
+            errorParam.set("stringValue", "TDS");
+            errorParamsArray.add(errorParam);
+        }
+        if (latestPH > 8.9) {
+            FirebaseJson errorParam;
+            errorParam.set("stringValue", "pH");
+            errorParamsArray.add(errorParam);
+        }
+        /* Uncomment when you want to include turbidity*/
+        
+        
+        content.set("fields/errorParameters/arrayValue/values", errorParamsArray);
+
+        // Log data to Firestore
+        Serial.print("Logging out-of-range parameters to Firestore... ");
+        if (Firebase.Firestore.createDocument(&fbdo, FIREBASE_PROJECT_ID, "", documentPath.c_str(), content.raw())) {
+            Serial.println("Success!");
+        } else {
+            Serial.println("Error: " + fbdo.errorReason());
+        }
+    }
+}
+
+
+String getFormattedTime() {
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("⚠️ Failed to obtain time");
+    return "Unknown";
   }
-  return total / samples;
+
+  char timeStr[30]; // Buffer for formatted time
+  strftime(timeStr, sizeof(timeStr), "%Y-%m-%dT%H:%M:%S", &timeinfo);
+  return String(timeStr);
 }
 
-float smoothVoltage(float current, float previous, float alpha = SMOOTHING_ALPHA) {
-  return previous + alpha * (current - previous);
-}
-
-int evaluateTrigger(float ph, float tds, float temp, float ntu) {
-  if (tds > TDS_TRIGGER || ntu < NTU_MIN || ntu > NTU_MAX) return 3;
-  if (ph < PH_MIN || ph > PH_MAX || temp < TEMP_MIN || temp > TEMP_MAX) return 2;
-  return 0;
-}
-
-void simulateManualTestValues(float ph, float tds, float temp, float ntu) {
-  manualTestMode = true;
-  testPH = ph;
-  testTDS = tds;
-  testTemp = temp;
-  testNTU = ntu;
-  Serial.printf("🧪 Manual test mode ON: pH=%.2f, TDS=%.1f, Temp=%.1f, NTU=%.1f\n", ph, tds, temp, ntu);
-}
-
-// === Setup ===
 void setup() {
   Serial.begin(115200);
   Serial2.begin(9600, SERIAL_8N1, 16, 17);
 
-  analogReadResolution(12);
-  analogSetAttenuation(ADC_11db);
+  // 🔹 Connect to Wi-Fi
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("Connecting to Wi-Fi");
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(300);
+  }
+  Serial.println("\nConnected with IP: " + WiFi.localIP().toString());
 
-  pinMode(RELAY1_PIN, OUTPUT);
-  pinMode(RELAY2_PIN, OUTPUT);
-  pinMode(RELAY3_PIN, OUTPUT);
-  pinMode(RELAY4_PIN, OUTPUT);
-  digitalWrite(RELAY1_PIN, HIGH);
-  digitalWrite(RELAY2_PIN, HIGH);
-  digitalWrite(RELAY3_PIN, HIGH);
-  digitalWrite(RELAY4_PIN, HIGH);
+  // 🔹 Firebase Setup
+  Serial.printf("Firebase Client v%s\n\n", FIREBASE_CLIENT_VERSION);
+  config.api_key = API_KEY;
+  config.database_url = DATABASE_URL;
 
-  slope1 = (4.00 - 7.00) / (V4 - V7);
-  slope2 = (7.00 - 10.00) / (V7 - V10);
-  avgSlope = (slope1 + slope2) / 2.0;
-
-  Serial.println("✅ ESP32 READY");
-  setModeContinuous();  // Start in Continuous Mode
-}
-
-// === Main Loop ===
-void loop() {
-  unsigned long now = millis();
-
-  // === Serial Command Input ===
-  if (Serial.available()) {
-    String cmd = Serial.readStringUntil('\n');
-    cmd.trim();
-
-    if (cmd.startsWith("test:")) {
-      cmd.remove(0, 5);
-      int i1 = cmd.indexOf(',');
-      int i2 = cmd.indexOf(',', i1 + 1);
-      int i3 = cmd.indexOf(',', i2 + 1);
-      if (i1 != -1 && i2 != -1 && i3 != -1) {
-        float ph = cmd.substring(0, i1).toFloat();
-        float tds = cmd.substring(i1 + 1, i2).toFloat();
-        float temp = cmd.substring(i2 + 1, i3).toFloat();
-        float ntu = cmd.substring(i3 + 1).toFloat();
-        simulateManualTestValues(ph, tds, temp, ntu);
-      }
-    } else if (cmd == "reset") {
-      manualTestMode = false;
-      Serial.println("✅ Manual test OFF.");
-    } else if (cmd == "flowless") {
-      testUseTimers = true;
-      Serial.println("🧪 Flowless test mode ENABLED.");
-    } else if (cmd == "flowon") {
-      testUseTimers = false;
-      Serial.println("✅ Flow meter logic RE-ENABLED.");
-    }
+  // 🔹 Anonymous Firebase Authentication
+  if (Firebase.signUp(&config, &auth, "", "")) {
+    Serial.println("Anonymous authentication successful.");
+    signupOK = true; // ✅ Now it is declared and updated
+  }else {
+    Serial.printf("Firebase SignUp Error: %s\n", config.signer.signupError.message.c_str());
   }
 
-  // === Arduino JSON Input Parsing ===
+  config.token_status_callback = tokenStatusCallback;
+
+  Firebase.begin(&config, &auth);
+  
+  Firebase.reconnectWiFi(true);
+
+  // 🔹 Configure and Sync NTP Time
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+  Serial.println("Waiting for NTP time sync...");
+  delay(2000);
+
+  pinMode(RELAY_1, OUTPUT);
+  pinMode(RELAY_2, OUTPUT);
+  pinMode(RELAY_3, OUTPUT);
+  pinMode(RELAY_4, OUTPUT);
+  stopAllRelays();
+}
+
+void loop() {
   while (Serial2.available()) {
     String data = Serial2.readStringUntil('\n');
     data.trim();
-    if (!data.startsWith("{")) continue;
-
-    unoData = data;
-    int l1 = unoData.indexOf("\"l1\":");
-    int l3 = unoData.indexOf("\"l3\":");
-    int temp = unoData.indexOf("\"temp\":");
-    int ntu = unoData.indexOf("\"ntu\":");
-
-    if (l1 != -1 && l3 != -1 && temp != -1 && ntu != -1) {
-      latestL1 = unoData.substring(l1 + 5, unoData.indexOf(',', l1)).toFloat();
-      latestL3 = unoData.substring(l3 + 5, unoData.indexOf(',', l3)).toFloat();
-      latestTemp = unoData.substring(temp + 7, unoData.indexOf(',', temp)).toFloat();
-      latestTurbidity = unoData.substring(ntu + 6, unoData.indexOf('}', ntu)).toFloat();
-
-      if (!testUseTimers) {
-        if (currentMode == DRAIN) {
-          drainedLiters += latestL1;
-          Serial.printf("💧 Draining... %.2f L total\n", drainedLiters);
-        }
-        if (currentMode == FILL) {
-          filledLiters += latestL3;
-          Serial.printf("🚿 Filling... %.2f L total\n", filledLiters);
-        }
-      }
+    if (data.startsWith("{")) {
+      latestL1 = data.substring(data.indexOf("\"l1\":") + 5, data.indexOf(',', data.indexOf("\"l1\":"))).toFloat();
+      latestL2 = data.substring(data.indexOf("\"l2\":") + 5, data.indexOf(',', data.indexOf("\"l2\":"))).toFloat();
+      latestL3 = data.substring(data.indexOf("\"l3\":") + 5, data.indexOf(',', data.indexOf("\"l3\":"))).toFloat();
+      latestTemp = data.substring(data.indexOf("\"temp\":") + 7, data.indexOf(',', data.indexOf("\"temp\":"))).toFloat();
+      latestPH = data.substring(data.indexOf("\"ph\":") + 5, data.indexOf(',', data.indexOf("\"ph\":"))).toFloat();
+      latestTDS = data.substring(data.indexOf("\"tds\":") + 6, data.indexOf('}', data.indexOf("\"tds\":"))).toFloat();
+      checkMode();
     }
   }
 
-  // === Simulated Counters for Timer Mode ===
-  if (testUseTimers) {
-    if (currentMode == DRAIN) {
-      Serial.printf("💧 Draining (Timer)... %lus elapsed\n", (millis() - drainStartTime) / 1000);
-    }
-    if (currentMode == FILL) {
-      Serial.printf("🚿 Filling (Timer)... %lus elapsed\n", (millis() - fillStartTime) / 1000);
-    }
+  if (Firebase.ready() && signupOK && (millis() - sendDataPrevMillis > 1000 || sendDataPrevMillis == 0)) {
+    sendDataPrevMillis = millis();
+    Firebase.RTDB.setFloat(&fbdo, "sensors/temp", latestTemp);
+    Firebase.RTDB.setFloat(&fbdo, "sensors/tds", latestTDS);
+    Firebase.RTDB.setFloat(&fbdo, "sensors/ph", latestPH);
   }
 
-  // === Sensor Averaging & Logic ===
-  if (millis() - lastSampleTime >= SAMPLE_INTERVAL_MS) {
-    lastSampleTime = millis();
-
-    float pH_V = getFilteredPHVoltage();
-    pH_voltageBuffer[bufferIndex] = pH_V;
-    tempBuffer[bufferIndex] = latestTemp;
-    turbBuffer[bufferIndex] = latestTurbidity;
-
-    float tds_V = readTDSRaw(TDS_PIN) * (3.3 / 4095.0);
-    filteredTDSVoltage = smoothVoltage(tds_V, filteredTDSVoltage);
-    tdsVoltageBuffer[bufferIndex] = filteredTDSVoltage;
-
-    bufferIndex++;
-
-    if (bufferIndex >= BUFFER_SIZE) {
-      float avgPH_V = 0, avgTemp = 0, avgNTU = 0, avgTDS_V = 0;
-      for (int i = 0; i < BUFFER_SIZE; i++) {
-        avgPH_V += pH_voltageBuffer[i];
-        avgTemp += tempBuffer[i];
-        avgNTU += turbBuffer[i];
-        avgTDS_V += tdsVoltageBuffer[i];
-      }
-
-      avgPH_V /= BUFFER_SIZE;
-      avgTemp /= BUFFER_SIZE;
-      avgNTU /= BUFFER_SIZE;
-      avgTDS_V /= BUFFER_SIZE;
-
-      float avgPH = 7.00 - ((avgPH_V - V7) * avgSlope);
-      float EC = (avgTDS_V <= V_1413)
-        ? ((avgTDS_V - V_1000) / (V_1413 - V_1000)) * (1413 - 1000) + 1000
-        : ((avgTDS_V - V_1413) / (V_12880 - V_1413)) * (12880 - 1413) + 1413;
-      float TDS = EC * 0.5;
-
-      if (manualTestMode) {
-        avgPH = testPH;
-        avgTemp = testTemp;
-        avgNTU = testNTU;
-        TDS = testTDS;
-      }
-
-      Serial.printf("\n[AVG] pH: %.2f | Temp: %.2f°C | NTU: %.2f | TDS: %.1f ppm\n", avgPH, avgTemp, avgNTU, TDS);
-
-      int trigger = evaluateTrigger(avgPH, TDS, avgTemp, avgNTU);
-
-      if (currentMode == CONTINUOUS && trigger > 0) {
-        currentMode = DRAIN;
-        targetDrainLiters = (trigger == 3) ? THREE_GALLONS : TWO_GALLONS;
-        targetFillLiters = targetDrainLiters;
-        drainedLiters = 0;
-        filledLiters = 0;
-        setModeDrain();
-      }
-      else if (currentMode == DRAIN &&
-        ((testUseTimers && millis() - drainStartTime >= DRAIN_TEST_DURATION_MS) ||
-         (!testUseTimers && drainedLiters >= targetDrainLiters))) {
-        currentMode = DUMP;
-        setModeDump();
-      }
-      else if (currentMode == DUMP &&
-               (millis() - dumpStartTime >= DUMP_DURATION_MS)) {
-        currentMode = FILL;
-        setModeFill();
-      }
-      else if (currentMode == FILL &&
-               ((testUseTimers && millis() - fillStartTime >= FILL_TEST_DURATION_MS) ||
-                (!testUseTimers && filledLiters >= targetFillLiters))) {
-        currentMode = CONTINUOUS;
-        setModeContinuous();
-      }
-
-      bufferIndex = 0;
-    }
-  }
+  // Call the functions to log hourly and out-of-range data
+    logHourlyData(latestTemp, latestTDS, latestPH);
+    logParameterOutOfRange(latestTemp, latestTDS, latestPH);
 }

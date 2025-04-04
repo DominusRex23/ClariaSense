@@ -1,20 +1,53 @@
 'use client';
 import Image from 'next/image'
-
-
-import { useState } from 'react';
+import {onValue, ref, off } from 'firebase/database';
+import {database} from './library/firebaseconfig'
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link'; // Import Next.js Link
 
 export default function Home() {
-    const [menuOpen, setMenuOpen] = useState(false);
+  const SENSOR_LABELS: Record<string, string> = {
+    ph: "pH Level",
+    tds: "TDS",
+    temp: "Temperature",
+  };  
+  const SENSOR_UNITS: Record<string, string> = {
+    ph: "pH",
+    tds: "ppm",
+    temp: "°C",
+  };  
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [data, setData] = useState<{ id: string; value: number }[]>([]);
+
+  useEffect(() => {
+    const sensorsRef = ref(database, "sensors");
+
+    const handleValueChange = (snapshot: any) => {
+      const sensorsData = snapshot.val();
+      if (sensorsData) {
+      const values = Object.entries(sensorsData).map(([id, value]) => ({ id, value: Number(value) }));
+      console.log("Fetched values:", values);
+      setData(values);
+      }
+    };
+
+    onValue(sensorsRef, handleValueChange, (error) => {
+      console.error("Error fetching data: ", error);
+    });
+
+    return () => {
+      off(sensorsRef, "value", handleValueChange);
+    };
+  }, []);
 
     const toggleMenu = () => {
         setMenuOpen(!menuOpen);
     };
 
     return (
-        <div>
+        <div className='font-inter'>
             <motion.nav 
                 initial={{ height: "auto" }}
                 animate={{ height: menuOpen ? "auto" : "auto" }}
@@ -25,13 +58,11 @@ export default function Home() {
                     {/* Logo Here */}
                     <div className=''>
                       <Image
-                        src="/images/clariaSenseLogo.png"
+                        src="/clariaSenseLogo.png"
                         width={100}
                         height={67}
                         alt="Logo"
-                      >
-                        
-                      </Image>
+                      />
                     </div>
 
                     {/* Mobile menu button */}
@@ -72,9 +103,18 @@ export default function Home() {
                 </AnimatePresence>
             </motion.nav>
 
-            <main className="text-center mt-40">
-                <h1 className="text-4xl">TEST</h1>
-                <h2 className="mt-10 text-xl">Responsive Navigation Bar Example</h2>
+            <main className="mx-8 mt-40">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 justify-center items-center">
+                  {data.map((value, index) => (
+                  <div 
+                    key={index} 
+                    className="border border-gray-300 rounded-lg p-4 text-center"
+                  >
+                    <p className= 'text-2xl font-bold'>{SENSOR_LABELS[value.id] ?? value.id}</p>
+                    <p className="text-8xl font-medium">{value.value}<span className='text-xl'>{SENSOR_UNITS[value.id] ?? " "}</span> </p>
+                  </div>
+                  ))}
+                </div>
             </main>
         </div>
     );

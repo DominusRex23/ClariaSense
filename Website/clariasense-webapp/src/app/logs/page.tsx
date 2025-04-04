@@ -25,7 +25,7 @@ export default function Logs() {
                     {/* Logo Here */}
                     <div className=''>
                       <Image
-                        src="/images/clariaSenseLogo.png"
+                        src="/clariaSenseLogo.png"
                         width={100}
                         height={67}
                         alt="Logo"
@@ -72,8 +72,7 @@ export default function Logs() {
             </motion.nav>
 
             <main className="text-center mt-40">
-                <h1 className="text-4xl">TEST</h1>
-                <h2 className="mt-10 text-xl">Responsive Navigation Bar Example</h2>
+                <h1 className="text-4xl">Coming Soon</h1>
             </main>
         </div>
     );

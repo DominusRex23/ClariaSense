@@ -17,8 +17,6 @@ export const metadata: Metadata = {
   description: "An Automated Monitoring System for Optimal Water Quality for Catfish by CPE 4-3 Group 7 S.Y. 2024-2025",
   icons: {
     icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
-    apple: "/favicon.ico",
   },
 };
 
@@ -30,7 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className="font-inter"
       >
         {children}
       </body>
