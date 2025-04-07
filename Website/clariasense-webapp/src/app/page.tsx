@@ -4,7 +4,7 @@ import {onValue, ref, off } from 'firebase/database';
 import {database} from './library/firebaseconfig'
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import Link from 'next/link'; // Import Next.js Link
+import Link from 'next/link'; 
 
 export default function Home() {
   const SENSOR_LABELS: Record<string, string> = {
@@ -28,7 +28,6 @@ export default function Home() {
       const sensorsData = snapshot.val();
       if (sensorsData) {
       const values = Object.entries(sensorsData).map(([id, value]) => ({ id, value: Number(value) }));
-      console.log("Fetched values:", values);
       setData(values);
       }
     };
@@ -57,12 +56,14 @@ export default function Home() {
                 <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
                     {/* Logo Here */}
                     <div className=''>
+                      <Link href="/">
                       <Image
                         src="/clariaSenseLogo.png"
                         width={100}
                         height={67}
                         alt="Logo"
                       />
+                      </Link>
                     </div>
 
                     {/* Mobile menu button */}
@@ -103,18 +104,22 @@ export default function Home() {
                 </AnimatePresence>
             </motion.nav>
 
-            <main className="mx-8 mt-40">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 justify-center items-center">
-                  {data.map((value, index) => (
-                  <div 
-                    key={index} 
-                    className="border border-gray-300 rounded-lg p-4 text-center"
-                  >
-                    <p className= 'text-2xl font-bold'>{SENSOR_LABELS[value.id] ?? value.id}</p>
-                    <p className="text-8xl font-medium">{value.value}<span className='text-xl'>{SENSOR_UNITS[value.id] ?? " "}</span> </p>
-                  </div>
-                  ))}
-                </div>
+            <main className="mx-8 mt-30">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 justify-center items-center">
+                {data.map((value, index) => (
+                <div 
+                  key={index}
+                  className="border border-gray-300 rounded-lg p-4 text-center overflow-hidden flex flex-col justify-center items-center min-w-0">
+                <p className="text-xl font-bold break-words">
+                  {SENSOR_LABELS[value.id] ?? value.id}
+                </p>
+                <p className="font-medium break-words text-[clamp(2rem,5vw,3.5rem)] leading-tight">
+                  {value.value}
+                  <span className='text-xl'>{SENSOR_UNITS[value.id] ?? " "}</span>
+                </p>
+    </div>
+  ))}
+</div>
             </main>
         </div>
     );

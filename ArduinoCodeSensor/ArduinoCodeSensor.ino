@@ -8,10 +8,14 @@
 #define TURBIDITY_PIN A0
 #define PH_PIN A1
 #define TDS_PIN A2
+#define TRIG_PIN 12
+#define ECHO_PIN 9
 
 #define FLOW1_CAL 604.0
 #define FLOW2_CAL 631.0
 #define FLOW3_CAL 633.0
+
+#define MAX_DISTANCE 200
 
 volatile unsigned int flow1_pulses = 0;
 volatile unsigned int flow2_pulses = 0;
@@ -28,11 +32,11 @@ unsigned long int avgValue;
 float pHVol, phValue;
 
 // TDS variables
-float V_1000 = 1.53;
-float V_1413 = 2.05;
-float V_12880 = 2.28;
-float filteredTDSVoltage = 0.0;
+float VREF = 5.0;              // ADC reference voltage
+float ecCalibration = 93.39;   // Based on your 255.5 ppm @ 0.730V
+float temperature = 25.0;      // Adjust if you have a sensor
 
+// TDS sensor read function
 int readTDSRaw(int samples = 10) {
   long total = 0;
   for (int i = 0; i < samples; i++) {
@@ -42,24 +46,35 @@ int readTDSRaw(int samples = 10) {
   return total / samples;
 }
 
-float smoothVoltage(float current, float previous, float alpha = 0.2) {
-  return previous + alpha * (current - previous);
-}
-
 float computeTDS() {
   int raw = readTDSRaw();
   float voltage = raw * (5.0 / 1023.0);
-  filteredTDSVoltage = smoothVoltage(voltage, filteredTDSVoltage);
 
-  float EC;
-  if (filteredTDSVoltage <= V_1413) {
-    EC = ((filteredTDSVoltage - V_1000) / (V_1413 - V_1000)) * (1413 - 1000) + 1000;
-  } else {
-    EC = ((filteredTDSVoltage - V_1413) / (V_12880 - V_1413)) * (12880 - 1413) + 1413;
-  }
+  // Convert voltage to raw EC (non-calibrated)
+  float rawEC = (voltage * 1000) / 133.42;
+  float ecValue = rawEC * ecCalibration;
 
-  return EC * 0.5;
+  // Temperature compensation (optional)
+  float compensatedEC = ecValue / (1.0 + 0.02 * (temperature - 25.0));
+
+  // TDS = EC × 0.5
+  float tdsValue = compensatedEC * 0.5;
+  return tdsValue;
 }
+
+long microsecondsToInches(long microseconds) {
+  // Convert the pulse duration to inches
+  return (microseconds / 74) / 2;
+}
+
+long microsecondsToCentimeters(long microseconds) {
+  // Convert the pulse duration to centimeters
+  return (microseconds / 29) / 2;
+}
+
+void ISR_Flow1() { flow1_pulses++; }
+void ISR_Flow2() { flow2_pulses++; }
+void ISR_Flow3() { flow3_pulses++; }
 
 void setup() {
   Serial.begin(9600);
@@ -68,6 +83,9 @@ void setup() {
   pinMode(FLOW1_PIN, INPUT_PULLUP);
   pinMode(FLOW2_PIN, INPUT_PULLUP);
   pinMode(FLOW3_PIN, INPUT_PULLUP);
+
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
 
   attachInterrupt(digitalPinToInterrupt(FLOW1_PIN), ISR_Flow1, RISING);
   attachPCINT(digitalPinToPCINT(FLOW2_PIN), ISR_Flow2, RISING);
@@ -80,7 +98,7 @@ void setup() {
     sensors.setResolution(insideThermometer, 9);
   }
 
-  Serial.println("Arduino ready. Sending data to ESP32...");
+  Serial.println("Arduino ready. Sending data...");
 }
 
 void loop() {
@@ -131,11 +149,28 @@ void loop() {
     for (int i = 2; i < 8; i++)
       avgValue += buf[i];
 
-    pHVol = (float)avgValue * 5.0 / 1024 / 6;
-    phValue = -2.2556 * pHVol + 11.841;
+    pHVol = (float)avgValue * 5.0 / 1024/ 6;
+    phValue = 1.5385 * pHVol + 1.4614;
 
-    // TDS
+    // TDS Calculation
     float tds = computeTDS();
+
+    // Ultrasonic Distance Measurement
+    long duration, inches, cm;
+
+    // Trigger the sensor to send a pulse
+    digitalWrite(TRIG_PIN, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN, LOW);
+
+    // Read the pulse duration from echoPin
+    duration = pulseIn(ECHO_PIN, HIGH);
+
+    // Convert microseconds to inches and centimeters
+    inches = microsecondsToInches(duration);
+    cm = microsecondsToCentimeters(duration);
 
     // JSON output
     String json = "{";
@@ -145,13 +180,12 @@ void loop() {
     json += "\"temp\":" + String(tempC, 2) + ",";
     json += "\"ntu\":" + String(ntu, 2) + ",";
     json += "\"ph\":" + String(phValue, 2) + ",";
-    json += "\"tds\":" + String(tds, 0);
+    json += "\"tds\":" + String(tds, 2) + ",";
+    json += "\"ph_voltage\":" + String(pHVol, 4) + ","; 
+    json += "\"distance_in\": " + String(inches); // Add distance in inches
     json += "}\n";
 
     Serial.print(json);
+    Serial.println();
   }
 }
-
-void ISR_Flow1() { flow1_pulses++; }
-void ISR_Flow2() { flow2_pulses++; }
-void ISR_Flow3() { flow3_pulses++; }

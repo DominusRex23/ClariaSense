@@ -1,17 +1,58 @@
 'use client';
 import Image from 'next/image'
-
-
-import { useState } from 'react';
+import { firestore } from '../library/firebaseconfig';
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import Link from 'next/link'; // Import Next.js Link
+import Link from 'next/link'; 
+import { log } from 'console';
+
+async function fetchLogsData(){
+  const logsQuery = query(collection(firestore, "hourly_logs"), orderBy("timestamp", "desc"));
+  const querySnapshot = await getDocs(logsQuery);
+  const data: { id: string; [key: string]: any }[] = [];
+  querySnapshot.forEach((doc) => {
+    data.push({id:doc.id, ...doc.data()});
+  });
+  return data;
+}
+
+async function fetchErrorLogsData(){
+  const logsQuery = query(collection(firestore, "error_logs"), orderBy("timestamp", "desc"));
+  const querySnapshot = await getDocs(logsQuery);
+  const data: { id: string; [key: string]: any }[] = [];
+  querySnapshot.forEach((doc) => {
+    data.push({id:doc.id, ...doc.data()});
+  });
+  return data;
+}
 
 export default function Logs() {
     const [menuOpen, setMenuOpen] = useState(false);
+    const [hourlyLogData, sethourlyLogData] = useState<{ id: string; [key: string]: any }[]>([]);
+    const [errorLogData, setErrorLogData] = useState<{ id: string; [key: string]: any }[]>([]);
+
+    useEffect(() =>{
+      async function fetchHourlyLogData() {
+        const logsData = await fetchLogsData();
+        sethourlyLogData(logsData);
+      }
+      fetchHourlyLogData();
+    }, []);
+
+    useEffect(() =>{
+      async function fetchErrorLogData() {
+        const logsData = await fetchErrorLogsData();
+        setErrorLogData(logsData);
+      }
+      fetchErrorLogData();
+    }, []);
 
     const toggleMenu = () => {
         setMenuOpen(!menuOpen);
     };
+
+  const [filter, setFilter] = useState<string>("logs");
 
     return (
         <div>
@@ -71,8 +112,69 @@ export default function Logs() {
                 </AnimatePresence>
             </motion.nav>
 
-            <main className="text-center mt-40">
-                <h1 className="text-4xl">Coming Soon</h1>
+            <main className="mt-30 mx-10">
+                <div className="mb-6">
+                  <button 
+                  onClick={() => setFilter("logs")} 
+                  className={`px-4 py-2 mr-4 rounded-md ${filter === "logs" ? "bg-[#1341b1] text-white" : "bg-gray-200 text-black"}`}
+                  >
+                  Logs
+                  </button>
+                  <button 
+                  onClick={() => setFilter("errorLogs")} 
+                  className={`px-4 py-2 rounded-md ${filter === "errorLogs" ? "bg-red-500 text-white" : "bg-gray-200 text-black"}`}
+                  >
+                  Out of Parameter Logs
+                  </button>
+                </div>
+                {filter === "logs" && (
+                  <div>
+                    <p className="italic mb-4">This part is for experimental purposes, might remove depending on the requirements</p>
+                  {hourlyLogData.map((logs) => (
+                    <div key={logs.id} className="border border-gray-300 p-4 mb-4 rounded-md">
+                    <p className="font-semibold">Time Recorded: {logs.timestamp}</p>
+                      <div className="grid grid-cols-1 gap-2 mt-2">
+                      <div className="flex flex-wrap gap-4 sm:gap-2 flex-col sm:flex-row">
+                      <div className="flex-1 min-w-[120px] sm:min-w-[150px]">
+                      <span className="font-semibold">pH:</span> {Math.min(...logs.ph)}pH - {Math.max(...logs.ph)}pH
+                      </div>
+                      <div className="flex-1 min-w-[120px] sm:min-w-[150px]">
+                      <span className="font-semibold">TDS:</span> {Math.min(...logs.tds)}ppm - {Math.max(...logs.tds)}ppm
+                      </div>
+                      <div className="flex-1 min-w-[120px] sm:min-w-[150px]">
+                      <span className="font-semibold">Temperature:</span> {Math.min(...logs.temp)}°C - {Math.max(...logs.temp)}°C
+                      </div>
+                      </div>
+                      </div>
+                    </div>
+                  ))}
+                  </div>
+                )}
+                {filter === "errorLogs" && (
+                  <div>
+                  {errorLogData.map((logs) => (
+                    <div key={logs.id} className="border border-gray-300 p-4 mb-4 rounded-md">
+                    <p className="font-semibold">Time Recorded: {logs.timestamp}</p>
+                    <p className="font-semibold italic text-red-500">
+                      Value/s that are Out of Parameter: {Array.isArray(logs.errorParameters) ? logs.errorParameters.join(' , ') : 'N/A'}
+                    </p>
+                      <div className="grid grid-cols-1 gap-2 mt-2">
+                      <div className="flex flex-wrap gap-4 sm:gap-2 flex-col sm:flex-row">
+                      <div className="flex-1 min-w-[120px] sm:min-w-[150px]">
+                      <span className="font-semibold">pH:</span>{logs.ph} pH
+                      </div>
+                      <div className="flex-1 min-w-[120px] sm:min-w-[150px]">
+                      <span className="font-semibold">TDS:</span> {logs.tds} ppm
+                      </div>
+                      <div className="flex-1 min-w-[120px] sm:min-w-[150px]">
+                      <span className="font-semibold">Temperature:</span> {logs.temp} °C
+                      </div>
+                      </div>
+                      </div>
+                    </div>
+                  ))}
+                  </div>
+                )}
             </main>
         </div>
     );

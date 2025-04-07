@@ -1,10 +1,8 @@
 'use client';
 import Image from 'next/image'
-
-
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import Link from 'next/link'; // Import Next.js Link
+import Link from 'next/link'; 
 
 export default function About() {
     const [menuOpen, setMenuOpen] = useState(false);
@@ -73,6 +71,8 @@ export default function About() {
 
             <main className="text-center mt-40">
                 <h1 className="text-4xl">Coming Soon</h1>
+                <p className="mt-4 text-lg">This page is under construction.</p>
+                <p className="mt-2 text-lg">Please check back later for updates.</p>
             </main>
         </div>
     );
