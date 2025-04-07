@@ -70,7 +70,7 @@ export default function About() {
             </motion.nav>
 
             <main className="bg-gray-auto pt-20 pb-10 min-h-screen px-4">
-    <h1 className="text-4xl font-semibold text-center text-blue-700 mt-5">About Us</h1>
+    <h1 className="text-4xl font-semibold  text-blue-700 mt-5">About Us</h1>
     <section className="max-w-3xl  bg-white shadow-lg rounded-lg p-8">
         <p className="text-lg text-gray-700 mb-6">Welcome to <strong>ClariaSense</strong> – a team committed to revolutionizing the aquaculture industry through innovative automation solutions. Our focus is on optimizing the management of catfish ponds, ensuring sustainable and efficient operations through cutting-edge technology.</p>
         <p className="text-lg text-gray-700 mb-6">At <strong>ClariaSense</strong>, we believe that the future of aquaculture lies in automation. By integrating smart systems with real-time monitoring, we help farmers maintain optimal water conditions for their catfish without the need for constant human intervention.</p>
