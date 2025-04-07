@@ -1,6 +1,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
 import dotenv from 'dotenv';
+import { getFirestore } from 'firebase/firestore';
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ if (!getApps().length) {
 }
 
 const database = getDatabase(firebaseApp);
+const firestore = getFirestore(firebaseApp);
 
 
-export { database }; 
+export { database, firestore }; 
