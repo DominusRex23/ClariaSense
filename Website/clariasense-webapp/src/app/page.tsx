@@ -4,7 +4,7 @@ import {onValue, ref, off } from 'firebase/database';
 import {database} from './library/firebaseconfig'
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import Link from 'next/link'; // Import Next.js Link
+import Link from 'next/link'; 
 
 export default function Home() {
   const SENSOR_LABELS: Record<string, string> = {
@@ -28,7 +28,6 @@ export default function Home() {
       const sensorsData = snapshot.val();
       if (sensorsData) {
       const values = Object.entries(sensorsData).map(([id, value]) => ({ id, value: Number(value) }));
-      console.log("Fetched values:", values);
       setData(values);
       }
     };
@@ -57,12 +56,14 @@ export default function Home() {
                 <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
                     {/* Logo Here */}
                     <div className=''>
+                      <Link href="/">
                       <Image
                         src="/clariaSenseLogo.png"
                         width={100}
                         height={67}
                         alt="Logo"
                       />
+                      </Link>
                     </div>
 
                     {/* Mobile menu button */}

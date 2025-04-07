@@ -1,5 +1,8 @@
+// /lib/firebase.ts
+
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
+import { getFirestore, collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -15,15 +18,10 @@ const firebaseConfig = {
   measurementId: process.env.MEASUREMENT_ID,
 };
 
-// Initialize Firebase if no apps are initialized yet
-let firebaseApp: FirebaseApp;
-if (!getApps().length) {
-  firebaseApp = initializeApp(firebaseConfig);
-} else {
-  firebaseApp = getApps()[0]; // Use the first initialized app if available
-}
 
-const database = getDatabase(firebaseApp);
+const firebaseApp = initializeApp(firebaseConfig);
+const rtdb = getDatabase(firebaseApp);
+const firestore = getFirestore(firebaseApp);
 
 
-export { database }; 
+export { firebaseApp, rtdb as database, firestore };

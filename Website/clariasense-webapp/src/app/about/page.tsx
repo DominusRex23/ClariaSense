@@ -1,10 +1,8 @@
 'use client';
 import Image from 'next/image'
-
-
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import Link from 'next/link'; // Import Next.js Link
+import Link from 'next/link'; 
 
 export default function About() {
     const [menuOpen, setMenuOpen] = useState(false);
