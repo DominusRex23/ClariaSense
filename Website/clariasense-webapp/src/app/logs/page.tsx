@@ -85,11 +85,11 @@ export default function Logs() {
                     </div>
 
                     {/* Desktop Menu */}
-                    <div className='hidden lg:flex space-x-6'>
-                      <Link href="/" className='text-black opacity-100 hover:opacity-70 duration-300'>Home</Link>
-                      <Link href="/logs" className='text-black opacity-100 hover:opacity-70 duration-300'>Logs</Link>
-                      <Link href="/about" className='text-black opacity-100 hover:opacity-70 duration-300'>About</Link>
-                    </div>
+                    <div className="hidden lg:flex space-x-6 items-center text-lg font-medium">
+  <Link href="/"className="text-gray-700 hover:bg-blue-100 hover:text-blue-600 px-4 py-2 rounded-md transition duration-300">Home</Link>
+  <Link href="/logs"className="text-gray-700 hover:bg-blue-100 hover:text-blue-600 px-4 py-2 rounded-md transition duration-300">Logs</Link>
+  <Link href="/about"className="text-gray-700 hover:bg-blue-100 hover:text-blue-600 px-4 py-2 rounded-md transition duration-300">About</Link>
+</div>
                 </div>
 
                 {/* Mobile Menu */}
