@@ -20,17 +20,14 @@ const firebaseConfig = {
 };
 
 
-<<<<<<< HEAD
 const firebaseApp = initializeApp(firebaseConfig);
 const rtdb = getDatabase(firebaseApp);
 const firestore = getFirestore(firebaseApp);
 
 
 export { firebaseApp, rtdb as database, firestore };
-=======
 const database = getDatabase(firebaseApp);
 const firestore = getFirestore(firebaseApp);
 
 
 export { database, firestore }; 
->>>>>>> 3d0bf2f735fcea9c9f37163c391fad62823d71e3
