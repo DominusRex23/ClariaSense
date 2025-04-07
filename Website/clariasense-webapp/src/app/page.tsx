@@ -75,12 +75,14 @@ export default function Home() {
                       </button>
                     </div>
 
+                    
                     {/* Desktop Menu */}
-                    <div className='hidden lg:flex space-x-6'>
-                      <Link href="/" className='text-black opacity-100 hover:opacity-70 duration-300'>Home</Link>
-                      <Link href="/logs" className='text-black opacity-100 hover:opacity-70 duration-300'>Logs</Link>
-                      <Link href="/about" className='text-black opacity-100 hover:opacity-70 duration-300'>About</Link>
-                    </div>
+<div className="hidden lg:flex space-x-6 items-center text-lg font-medium">
+  <Link href="/"className="text-gray-700 hover:bg-blue-100 hover:text-blue-600 px-4 py-2 rounded-md transition duration-300">Home</Link>
+  <Link href="/logs"className="text-gray-700 hover:bg-blue-100 hover:text-blue-600 px-4 py-2 rounded-md transition duration-300">Logs</Link>
+  <Link href="/about"className="text-gray-700 hover:bg-blue-100 hover:text-blue-600 px-4 py-2 rounded-md transition duration-300">About</Link>
+</div>
+
                 </div>
 
                 {/* Mobile Menu */}
@@ -104,18 +106,42 @@ export default function Home() {
             </motion.nav>
 
             <main className="mx-8 mt-40">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 justify-center items-center">
-                  {data.map((value, index) => (
-                  <div 
-                    key={index} 
-                    className="border border-gray-300 rounded-lg p-4 text-center"
-                  >
-                    <p className= 'text-2xl font-bold'>{SENSOR_LABELS[value.id] ?? value.id}</p>
-                    <p className="text-8xl font-medium">{value.value}<span className='text-xl'>{SENSOR_UNITS[value.id] ?? " "}</span> </p>
-                  </div>
-                  ))}
-                </div>
-            </main>
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 justify-center items-center">
+    {data.map((value, index) => {
+      const sensor = SENSOR_LABELS[value.id] ?? value.id;
+      const unit = SENSOR_UNITS[value.id] ?? " ";
+      
+      const borderColor = value.id === 'ph' 
+        ? 'border-red-400'
+        : value.id === 'tds'
+        ? 'border-yellow-400'
+        : value.id === 'temp'
+        ? 'border-blue-400'
+        : 'border-gray-300';
+
+      const valueColor = value.id === 'ph'
+        ? 'text-red-500'
+        : value.id === 'tds'
+        ? 'text-yellow-500'
+        : value.id === 'temp'
+        ? 'text-blue-500'
+        : 'text-gray-800';
+
+      return (
+        <div
+          key={index}
+          className={`bg-white rounded-2xl shadow-md p-6 text-center border-t-4 ${borderColor} hover:shadow-xl transition-all duration-300`}>
+          <p className="text-xl font-semibold text-gray-600 mb-2">{sensor}</p>
+          <p className={`text-6xl font-bold ${valueColor}`}>
+            {value.value}
+            <span className="text-2xl text-gray-500 ml-1">{unit}</span>
+          </p>
+        </div>
+      );
+    })}
+  </div>
+</main>
+
         </div>
     );
 }
