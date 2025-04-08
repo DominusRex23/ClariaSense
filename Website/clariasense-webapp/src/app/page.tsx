@@ -1,9 +1,11 @@
 'use client';
 import Image from 'next/image'
 import {onValue, ref, off } from 'firebase/database';
-import {database} from './library/firebaseconfig'
+import { database, firestore } from './library/firebaseconfig';
+import { collection, addDoc, serverTimestamp, query, getDocs, where } from "firebase/firestore";
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import ReactPlayer from 'react-player';
 import Link from 'next/link'; 
 
 export default function Home() {
@@ -18,9 +20,43 @@ export default function Home() {
     temp: "°C",
   };  
 
+  const [email, setEmail] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [data, setData] = useState<{ id: string; value: number }[]>([]);
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+  
+    const userRef = collection(firestore, "subscribers");
+  
+    // Normalize email (trim + lowercase)
+    const normalizedEmail = email.trim().toLowerCase();
+  
+    try {
+      // Check if email already exists
+      const existingQuery = query(userRef, where("email", "==", normalizedEmail));
+      const querySnapshot = await getDocs(existingQuery);
+  
+      if (!querySnapshot.empty) {
+        alert("You're already subscribed with this email.");
+        return;
+      }
+  
+      // Add new subscription
+      await addDoc(userRef, {
+        email: normalizedEmail,
+        subscribedAt: serverTimestamp(),
+      });
+  
+      alert("Subscription successful! You will receive updates soon.");
+      setEmail(""); // Clear input field
+  
+    } catch (error) {
+      console.error("Error subscribing:", error);
+      alert("Failed to subscribe.");
+    }
+  };
+  
   useEffect(() => {
     const sensorsRef = ref(database, "sensors");
 
@@ -44,6 +80,7 @@ export default function Home() {
     const toggleMenu = () => {
         setMenuOpen(!menuOpen);
     };
+
 
     return (
         <div className='font-inter'>
@@ -131,9 +168,9 @@ export default function Home() {
       return (
         <div
           key={index}
-          className={`bg-white rounded-2xl shadow-md p-6 text-center border-t-4 ${borderColor} hover:shadow-xl transition-all duration-300`}>
+          className={`bg-white rounded-2xl shadow-md p-6 text-center border-t-4 ${borderColor} hover:shadow-xl transition-all duration-300 overflow-hidden`}>
           <p className="text-xl font-semibold text-gray-600 mb-2">{sensor}</p>
-          <p className={`text-6xl font-bold ${valueColor}`}>
+          <p className={`text-6xl font-bold font-medium break-words text-[clamp(2rem,5vw,3.5rem)] leading-tight ${valueColor}`}>
             {value.value}
             <span className="text-2xl text-gray-500 ml-1">{unit}</span>
           </p>
@@ -141,8 +178,57 @@ export default function Home() {
       );
     })}
   </div>
-</main>
+  <br />
+            <br />
 
+            
+<div className="mt-12 mx-auto max-w-4xl px-4">
+  <h2 className="text-2xl font-bold text-center mb-6">Our Product in Action</h2>
+  <div className="aspect-w-16 aspect-h-9 rounded-xl overflow-hidden shadow-lg">
+  <ReactPlayer
+      url="C:\Users\IA\Documents\ClariaSense\Website\clariasense-webapp\public\videos\try.mp4" // Replace with your video URL
+      width="100%"
+      height="100%"
+      controls={true}
+      light={false}
+      playing={false}
+    />
+  </div>
+  <p className="text-center text-gray-600 mt-4">
+    See how our monitoring system works in real aquarium environments
+  </p>
+</div> 
+<br/>
+<br/>
+            <p className="text-center text-gray-500 mt-4">Want to know if the Aquarium is not in the best environment for fish?</p>
+            <p className="text-center text-gray-500">Subscribe to our newsletter for updates!</p>
+            <form 
+            onSubmit={handleSubmit} 
+            className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 mt-8 mx-auto max-w-md p-4 w-full mb-20"
+            >
+            <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Enter your email"
+            required
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
+            />
+            <button 
+            type="submit" 
+            className="bg-[#1341b1] text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition duration-300 w-full sm:w-auto"
+            >
+            Subscribe
+            </button>
+            </form>
+             </main>
+             <footer className="bg-white border-t border-gray-200 py-4 mt-8 w-full fixed bottom-0 left-0">
+          <div className="max-w-screen-xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center">
+            <p className="text-gray-500 text-sm text-center w-full">
+          © {new Date().getFullYear()} ClariaSense. CPE 4 - 3 Group 7 S.Y. 2024-2025. All rights reserved.
+            </p>
+          </div>
+          </footer>
         </div>
     );
 }

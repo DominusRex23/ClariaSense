@@ -1,3 +1,4 @@
+
 'use client';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -23,8 +24,8 @@ async function fetchErrorLogsData() {
 
 export default function Logs() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [hourlyLogData, setHourlyLogData] = useState([]);
-  const [errorLogData, setErrorLogData] = useState([]);
+  const [hourlyLogData, setHourlyLogData] = useState<{ id: string; [key: string]: any }[]>([]);
+  const [errorLogData, setErrorLogData] = useState<{ id: string; [key: string]: any }[]>([]);
   const [filter, setFilter] = useState('logs');
 
   useEffect(() => {
@@ -93,72 +94,98 @@ export default function Logs() {
       {/* MAIN CONTENT */}
       <main className="pt-28 px-6 sm:px-10">
         <div className="mb-6">
-          <button
+            <button
             onClick={() => setFilter('logs')}
-            className={`filter-btn ${filter === 'logs' ? 'bg-[#1341b1] text-white' : 'hover:bg-blue-500 hover:text-white'}`}>
+            className={`filter-btn ${filter === 'logs' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-black hover:bg-blue-500 hover:text-white'}`}>
             Logs
-          </button>
-          <button
-          onClick={() => setFilter('errorLogs')}
-          className={`filter-btn error ${filter === 'errorLogs' ? 'bg-red-500 text-white' : ''}`}>
-          Out of Parameter Logs
-</button>
+            </button>
+            <button
+            onClick={() => setFilter('errorLogs')}
+            className={`filter-btn error ${filter === 'errorLogs' ? 'bg-red-500 text-white' : 'bg-gray-200 text-black hover:bg-red-500 hover:text-white'}`}>
+            Out of Parameter Logs
+            </button>
         </div>
       </main>
+      <footer className="bg-white border-t border-gray-200 py-4 mt-8 w-full fixed bottom-0 left-0">
+        <div className="max-w-screen-xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center">
+          <p className="text-gray-500 text-sm text-center w-full">
+        © {new Date().getFullYear()} ClariaSense. CPE 4 - 3 Group 7 S.Y. 2024-2025. All rights reserved.
+          </p>
+        </div>
+      </footer>
 
       {/* Display the logs */}
       {filter === 'logs' && (
         <div>
-          <p className="italic mb-4 text-gray-500">This part is for experimental purposes, might remove depending on the requirements</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <p className="italic mx-4 mb-4 text-gray-500">This part is for experimental purposes, might remove depending on the requirements</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 rounded-lg border border-gray-200">
             {hourlyLogData.map((logs, index) => (
               <motion.div
-                key={logs.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
-                className="log-card border-gray-300 bg-gray-100 hover:shadow-lg hover:shadow-blue-500/50"
+              key={logs.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: index * 0.1 }}
+              className="log-card border-gray-300 bg-gray-100 hover:shadow-lg hover:shadow-blue-500/50 rounded-lg p-4"
               >
-                <p className="text-sm font-medium text-gray-600 mb-2">
-                  Time Recorded: <span className="text-gray-800 font-medium">{logs.timestamp}</span>
-                </p>
-                <div className="space-y-2 text-sm text-gray-700">
-                  <p><FaFlask className="inline mr-2 text-blue-500" />pH: {Math.min(...logs.ph)} - {Math.max(...logs.ph)} pH</p>
-                  <p><FaTint className="inline mr-2 text-purple-500" />TDS: {Math.min(...logs.tds)} - {Math.max(...logs.tds)} ppm</p>
-                  <p><FaTemperatureHigh className="inline mr-2 text-orange-500" />Temp: {Math.min(...logs.temp)} - {Math.max(...logs.temp)} °C</p>
+              <p className="text-sm font-medium text-gray-600 mb-2">
+                Time Recorded: <span className="text-gray-800 font-medium">{logs.timestamp}</span>
+              </p>
+              <div className="space-y-2 text-sm text-gray-700">
+                <div className="flex items-center">
+                  <span className="inline mr-2 text-blue-500"><FaFlask /></span>
+                  <p>pH: {Math.min(...logs.ph)} - {Math.max(...logs.ph)} pH</p>
                 </div>
+                <div className="flex items-center">
+                  <span className="inline mr-2 text-purple-500"><FaTint /></span>
+                  <p>TDS: {Math.min(...logs.tds)} - {Math.max(...logs.tds)} ppm</p>
+                </div>
+                <div className="flex items-center">
+                  <span className="inline mr-2 text-orange-500"><FaTemperatureHigh /></span>
+                  <p>Temp: {Math.min(...logs.temp)} - {Math.max(...logs.temp)} °C</p>
+                </div>
+              </div>
               </motion.div>
             ))}
-          </div>
+            </div>
         </div>
       )}
 
       {filter === 'errorLogs' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 rounded-lg border border-gray-200">
           {errorLogData.map((logs, index) => (
             <motion.div
               key={logs.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
-              className="log-card border-gray-300 bg-gray-50 hover:shadow-lg hover:shadow-red-500/50"
+              className="log-card border-gray-300 bg-gray-50 hover:shadow-lg hover:shadow-red-500/50 rounded-lg p-4"
             >
               <p className="text-sm font-medium text-gray-600 mb-2">
-                Time Recorded: <span className="text-gray-800">{logs.timestamp}</span>
+          Time Recorded: <span className="text-gray-800">{logs.timestamp}</span>
               </p>
-              <p className="text-red-600 font-semibold text-sm mb-2">
-                <FaExclamationTriangle className="inline mr-2" />
-                Out of Range: {Array.isArray(logs.errorParameters) ? logs.errorParameters.join(', ') : 'N/A'}
-              </p>
-              <div className="space-y-2 text-sm text-gray-700">
-                <p><FaFlask className="inline mr-2 text-blue-500" />pH: {logs.ph} pH</p>
-                <p><FaTint className="inline mr-2 text-purple-500" />TDS: {logs.tds} ppm</p>
-                <p><FaTemperatureHigh className="inline mr-2 text-orange-500" />Temp: {logs.temp} °C</p>
-              </div>
+                <div className="flex items-center text-red-600 font-semibold text-sm mb-2">
+                <span className="inline mr-2"><FaExclamationTriangle /></span>
+                <p>Out of Range: {Array.isArray(logs.errorParameters) ? logs.errorParameters.join(', ') : 'N/A'}</p>
+                </div>
+                <div className="space-y-2 text-sm text-gray-700">
+                <div className="flex items-center">
+                  <span className="inline mr-2 text-blue-500"><FaFlask /></span>
+                  <p>pH: {logs.ph} pH</p>
+                </div>
+                <div className="flex items-center">
+                  <span className="inline mr-2 text-purple-500"><FaTint /></span>
+                  <p>TDS: {logs.tds} ppm</p>
+                </div>
+                <div className="flex items-center">
+                  <span className="inline mr-2 text-orange-500"><FaTemperatureHigh /></span>
+                  <p>Temp: {logs.temp} °C</p>
+                </div>
+                </div>
             </motion.div>
           ))}
         </div>
       )}
+      
 
       <style jsx>{`
         .nav-link {
@@ -207,6 +234,7 @@ export default function Logs() {
           box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
         }
       `}</style>
+     
     </div>
   );
 }
