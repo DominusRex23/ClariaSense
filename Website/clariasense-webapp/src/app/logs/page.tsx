@@ -95,16 +95,14 @@ export default function Logs() {
         <div className="mb-6">
           <button
             onClick={() => setFilter('logs')}
-            className={`filter-btn ${filter === 'logs' ? 'bg-[#1341b1] text-white' : 'hover:bg-blue-500 hover:text-white'}`}
-          >
+            className={`filter-btn ${filter === 'logs' ? 'bg-[#1341b1] text-white' : 'hover:bg-blue-500 hover:text-white'}`}>
             Logs
           </button>
           <button
             onClick={() => setFilter('errorLogs')}
-            className={`filter-btn ${filter === 'errorLogs' ? 'bg-red-500 text-white' : 'hover:bg-red-500 hover:text-white'}`}
-          >
+            className={`filter-btn error ${filter === 'errorLogs' ? 'bg-red-500 text-white' : ''}`}>
             Out of Parameter Logs
-          </button>
+</button>
         </div>
       </main>
 
@@ -143,7 +141,7 @@ export default function Logs() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
-              className="log-card border-red-300 bg-red-50 hover:shadow-lg hover:shadow-blue-500/50"
+              className="log-card border-gray-300 bg-gray-50 hover:shadow-lg hover:shadow-red-500/50"
             >
               <p className="text-sm font-medium text-gray-600 mb-2">
                 Time Recorded: <span className="text-gray-800">{logs.timestamp}</span>
@@ -188,10 +186,15 @@ export default function Logs() {
           background-color: #e5e7eb;
           color: black;
           transition: all 0.3s;
+          cursor: pointer;
         }
         .filter-btn:hover {
-          opacity: 0.8;
+          background-color: #3b82f6; /* blue-500 */
+          color: white;
         }
+         .filter-btn.error:hover {
+    background-color: #ef4444; /* red-500 */
+        }  
         .log-card {
           padding: 1rem;
           border-radius: 0.75rem;
