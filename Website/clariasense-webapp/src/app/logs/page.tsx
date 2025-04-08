@@ -99,9 +99,9 @@ export default function Logs() {
             Logs
           </button>
           <button
-            onClick={() => setFilter('errorLogs')}
-            className={`filter-btn error ${filter === 'errorLogs' ? 'bg-red-500 text-white' : ''}`}>
-            Out of Parameter Logs
+          onClick={() => setFilter('errorLogs')}
+          className={`filter-btn error ${filter === 'errorLogs' ? 'bg-red-500 text-white' : ''}`}>
+          Out of Parameter Logs
 </button>
         </div>
       </main>
