@@ -21,7 +21,7 @@ export default function Home() {
   };  
   const NORMAL_RANGES: Record<string, { min: number; max: number; text: string }> = {
     ph: { min: 6.5, max: 7.5, text: "Normal Range: 6.5pH - 7.5pH" },
-    tds: { min: 100, max: 125, text: "Normal Range: 100ppm - 125ppm" },
+    tds: { min: 100, max: 300, text: "Normal Range: 100ppm - 300ppm" },
     temp: { min: 29, max: 32, text: "Normal Range: 29°C - 32°C" },
   };
 
@@ -218,24 +218,6 @@ export default function Home() {
 </div>
   <br />
             <br />
-
-            
-<div className="mt-12 mx-auto max-w-4xl px-4">
-  <h2 className="text-2xl font-bold text-center mb-6">Our Product in Action</h2>
-  <div className=" aspect-video  overflow-hidden shadow-xl">
-  <ReactPlayer
-      url="https://www.youtube.com/watch?v=XbLemOwzdxk" // Replace with your video URL
-      width="100%"
-      height="100%"
-      controls={true}
-      light={false}
-      playing={false}
-    />
-  </div>
-  <p className="text-center text-gray-600 mt-4">
-    See how our monitoring system works in real aquarium environments
-  </p>
-</div> 
 <br/>
 <br/>
             <p className="text-center text-gray-500 mt-4">Want to know if the Aquarium is not in the best environment for fish?</p>
